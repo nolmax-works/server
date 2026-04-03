@@ -46,9 +46,9 @@ public class AuthHandler extends SimpleChannelInboundHandler<ChatPacket> {
             AuthResponse successResponse = AuthResponse.newBuilder().setErrorCode(0).build();
             ChatPacket responsePacket = ChatPacket.newBuilder().setAuthResponse(successResponse).build();
             authenticated = true;
-            ctx.channel().attr(USER_ID).set(user.getId()); // Store the user ID
+            ctx.channel().attr(USER_ID).set(user.getId()); // store the user ID
             ctx.writeAndFlush(responsePacket);
-            ctx.pipeline().remove(this); // remove pipeline so we may not need to reauth again
+            ctx.pipeline().remove(this); // remove pipeline so we may not need to reauth again once we're in reducing overhead
             log.info("Authentication success for user: " + user.getId());
         } else {
             sendAuthFailureAndClose(ctx);
