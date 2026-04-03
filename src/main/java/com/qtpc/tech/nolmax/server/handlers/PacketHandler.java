@@ -4,20 +4,7 @@ import com.nolmax.database.database.ConversationDAO;
 import com.nolmax.database.database.MessageDAO;
 import com.nolmax.database.database.ParticipantDAO;
 import com.nolmax.database.model.Conversation;
-import com.qtpc.tech.nolmax.proto.ChatPacket;
-import com.qtpc.tech.nolmax.proto.ConversationType;
-import com.qtpc.tech.nolmax.proto.CreateConversationRequest;
-import com.qtpc.tech.nolmax.proto.CreateConversationResponse;
-import com.qtpc.tech.nolmax.proto.DeleteConversationRequest;
-import com.qtpc.tech.nolmax.proto.DeleteConversationResponse;
-import com.qtpc.tech.nolmax.proto.PullConversationsRequest;
-import com.qtpc.tech.nolmax.proto.PullConversationsResponse;
-import com.qtpc.tech.nolmax.proto.UpdateConversationAvatarRequest;
-import com.qtpc.tech.nolmax.proto.UpdateConversationAvatarResponse;
-import com.qtpc.tech.nolmax.proto.UpdateConversationLastMessageRequest;
-import com.qtpc.tech.nolmax.proto.UpdateConversationLastMessageResponse;
-import com.qtpc.tech.nolmax.proto.UpdateConversationNameRequest;
-import com.qtpc.tech.nolmax.proto.UpdateConversationNameResponse;
+import com.qtpc.tech.nolmax.proto.*;
 import com.qtpc.tech.nolmax.server.Main;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -29,163 +16,158 @@ import java.util.List;
 public class PacketHandler extends SimpleChannelInboundHandler<ChatPacket> {
     private static final Logger log = LoggerFactory.getLogger(PacketHandler.class);
 
+    private final ConversationDAO conversationDAO = new ConversationDAO();
+    private final MessageDAO messageDAO = new MessageDAO();
+    private final ParticipantDAO participantDAO = new ParticipantDAO();
+
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ChatPacket packet) {
-        if (Main.config != null && Main.config.server != null && Main.config.server.debug) {
-            log.debug("Received packet from {}: {}", ctx.channel().remoteAddress(), packet.getDescriptorForType().getName());
+        logDebug("Received packet from {}: {}", ctx.channel().remoteAddress(), packet.getDescriptorForType().getName());
+
+        if (packet.hasCreateConversationRequest()) {
+            handleCreateConversation(ctx, packet.getCreateConversationRequest());
+        } else if (packet.hasUpdateConversationAvatarRequest()) {
+            handleUpdateConversationAvatar(ctx, packet.getUpdateConversationAvatarRequest());
+        } else if (packet.hasUpdateConversationNameRequest()) {
+            handleUpdateConversationName(ctx, packet.getUpdateConversationNameRequest());
+        } else if (packet.hasUpdateConversationLastMessageRequest()) {
+            handleUpdateConversationLastMessage(ctx, packet.getUpdateConversationLastMessageRequest());
+        } else if (packet.hasDeleteConversationRequest()) {
+            handleDeleteConversation(ctx, packet.getDeleteConversationRequest());
+        } else if (packet.hasPullConversationsRequest()) {
+            handlePullConversations(ctx, packet.getPullConversationsRequest());
+        } else {
+            log.warn("Received unsupported packet type from {}: {}", ctx.channel().remoteAddress(), packet.getDescriptorForType().getName());
+        }
+    }
+
+    private void handleCreateConversation(ChannelHandlerContext ctx, CreateConversationRequest request) {
+        logDebug("Handling CreateConversationRequest from {}", ctx.channel().remoteAddress());
+
+        com.qtpc.tech.nolmax.proto.Conversation proto = request.getConversation();
+
+        Conversation conversation = new Conversation();
+        conversation.setAvatarUrl(proto.getAvatarUrl());
+        conversation.setName(proto.getName());
+        conversation.setType(proto.getTypeValue());
+        conversation.setCreatedBy(getUserId(ctx));
+
+        boolean success = conversationDAO.createConversation(conversation);
+        log.info("CreateConversationRequest processed: success={}", success);
+
+        sendResponse(ctx, CreateConversationResponse.newBuilder()
+                .setErrorCode(toErrorCode(success))
+                .build());
+    }
+
+    private void handleUpdateConversationAvatar(ChannelHandlerContext ctx, UpdateConversationAvatarRequest request) {
+        logDebug("Handling UpdateConversationAvatarRequest from {}", ctx.channel().remoteAddress());
+
+        long conversationId = request.getId();
+        boolean success = conversationDAO.updateAvatar(conversationId, request.getAvatarUrl());
+        log.info("UpdateConversationAvatarRequest processed for conversationId={}: success={}", conversationId, success);
+
+        sendResponse(ctx, UpdateConversationAvatarResponse.newBuilder()
+                .setErrorCode(toErrorCode(success))
+                .build());
+    }
+
+    private void handleUpdateConversationName(ChannelHandlerContext ctx, UpdateConversationNameRequest request) {
+        logDebug("Handling UpdateConversationNameRequest from {}", ctx.channel().remoteAddress());
+
+        long conversationId = request.getId();
+        boolean success = conversationDAO.updateName(conversationId, request.getName());
+        log.info("UpdateConversationNameRequest processed for conversationId={}: success={}", conversationId, success);
+
+        sendResponse(ctx, UpdateConversationNameResponse.newBuilder()
+                .setErrorCode(toErrorCode(success))
+                .build());
+    }
+
+    private void handleUpdateConversationLastMessage(ChannelHandlerContext ctx, UpdateConversationLastMessageRequest request) {
+        logDebug("Handling UpdateConversationLastMessageRequest from {}", ctx.channel().remoteAddress());
+
+        long conversationId = request.getId();
+        long lastMessageId = request.getMessageId();
+        boolean success = conversationDAO.updateLastMessageId(conversationId, lastMessageId);
+        log.info("UpdateConversationLastMessageRequest processed for conversationId={}, lastMessageId={}: success={}",
+                conversationId, lastMessageId, success);
+
+        sendResponse(ctx, UpdateConversationLastMessageResponse.newBuilder()
+                .setErrorCode(toErrorCode(success))
+                .build());
+    }
+
+    private void handleDeleteConversation(ChannelHandlerContext ctx, DeleteConversationRequest request) {
+        logDebug("Handling DeleteConversationRequest from {}", ctx.channel().remoteAddress());
+
+        long conversationId = request.getId();
+
+        if (!conversationDAO.isCreator(conversationId, getUserId(ctx))) {
+            log.info("DeleteConversationRequest denied for conversationId={}: not creator", conversationId);
+            sendResponse(ctx, DeleteConversationResponse.newBuilder().setErrorCode(1).build());
+            return;
         }
 
-        // DAO objects
-        ConversationDAO conversationDAO = new ConversationDAO();
-        MessageDAO messageDAO = new MessageDAO();
-        ParticipantDAO participantDAO = new ParticipantDAO();
+        boolean success = conversationDAO.deleteConversation(conversationId);
+        log.info("DeleteConversationRequest processed for conversationId={}: success={}", conversationId, success);
 
-        // conversation-focused
-        if (packet.hasCreateConversationRequest()) {
-            if (Main.config != null && Main.config.server != null && Main.config.server.debug) {
-                log.debug("Handling CreateConversationRequest from {}", ctx.channel().remoteAddress());
-            }
+        sendResponse(ctx, DeleteConversationResponse.newBuilder()
+                .setErrorCode(toErrorCode(success))
+                .build());
+    }
 
-            // initialize objects
-            CreateConversationRequest createConversationRequest = packet.getCreateConversationRequest();
-            com.qtpc.tech.nolmax.proto.Conversation packetConversation = createConversationRequest.getConversation();
+    private void handlePullConversations(ChannelHandlerContext ctx, PullConversationsRequest request) {
+        logDebug("Handling PullConversationsRequest from {}", ctx.channel().remoteAddress());
 
-            // initialize a new conversation obj
-            Conversation conversation = new Conversation();
-            conversation.setAvatarUrl(packetConversation.getAvatarUrl());
-            conversation.setName(packetConversation.getName());
-            conversation.setType(packetConversation.getTypeValue()); // 0 for private, 1 for group
-            conversation.setCreatedBy(ctx.channel().attr(com.qtpc.tech.nolmax.server.handlers.AuthHandler.USER_ID).get()); // get channel owner
+        long userId = request.getUserId();
+        long lastUpdateId = request.getLastUpdateId();
 
-            // create the conversation in the db
-            boolean result = conversationDAO.createConversation(conversation);
+        List<com.qtpc.tech.nolmax.proto.Conversation> protoConversations = conversationDAO.pull(lastUpdateId, userId).stream()
+                .map(this::toProtoConversation)
+                .toList();
 
-            log.info("CreateConversationRequest processed: success={}", result);
+        log.info("PullConversationsRequest processed for userId={}, lastUpdateId={}, returnedConversations={}",
+                userId, lastUpdateId, protoConversations.size());
 
-            // send back response
-            CreateConversationResponse response = CreateConversationResponse.newBuilder().setErrorCode(result ? 0 : 1).build();
-            ctx.writeAndFlush(response);
-        } else if (packet.hasUpdateConversationAvatarRequest()) {
-            if (Main.config != null && Main.config.server != null && Main.config.server.debug) {
-                log.debug("Handling UpdateConversationAvatarRequest from {}", ctx.channel().remoteAddress());
-            }
+        sendResponse(ctx, PullConversationsResponse.newBuilder()
+                .addAllConversations(protoConversations)
+                .build());
+    }
 
-            // initialize packet object
-            UpdateConversationAvatarRequest updateConversationAvatarRequest = packet.getUpdateConversationAvatarRequest();
+    // helper methods
 
-            // grab the properties
-            long conversationId = updateConversationAvatarRequest.getId();
-            String avatarUrl = updateConversationAvatarRequest.getAvatarUrl();
+    private com.qtpc.tech.nolmax.proto.Conversation toProtoConversation(Conversation c) {
+        return com.qtpc.tech.nolmax.proto.Conversation.newBuilder()
+                .setId(c.getId())
+                .setType(ConversationType.forNumber(c.getType()))
+                .setName(c.getName())
+                .setAvatarUrl(c.getAvatarUrl())
+                .setCreatedBy(c.getCreatedBy())
+                .setUpdateId(c.getUpdateId())
+                .setLastMessageId(c.getLastMessageId())
+                .build();
+    }
 
-            // backend update
-            boolean result = conversationDAO.updateAvatar(conversationId, avatarUrl);
+    private static long getUserId(ChannelHandlerContext ctx) {
+        return ctx.channel().attr(AuthHandler.USER_ID).get();
+    }
 
-            log.info("UpdateConversationAvatarRequest processed for conversationId={}: success={}", conversationId, result);
+    private static int toErrorCode(boolean success) {
+        return success ? 0 : 1;
+    }
 
-            // send back response
-            UpdateConversationAvatarResponse updateConversationAvatarResponse = UpdateConversationAvatarResponse.newBuilder().setErrorCode(result ? 0 : 1).build();
-            ctx.writeAndFlush(updateConversationAvatarResponse);
-        } else if (packet.hasUpdateConversationNameRequest()) {
-            if (Main.config != null && Main.config.server != null && Main.config.server.debug) {
-                log.debug("Handling UpdateConversationNameRequest from {}", ctx.channel().remoteAddress());
-            }
+    private static void sendResponse(ChannelHandlerContext ctx, Object response) {
+        ctx.writeAndFlush(response);
+    }
 
-            // initialize packet object
-            UpdateConversationNameRequest updateConversationNameRequest = packet.getUpdateConversationNameRequest();
+    private static boolean isDebugEnabled() {
+        return Main.config != null && Main.config.server != null && Main.config.server.debug;
+    }
 
-            // grab the properties
-            long conversationId = updateConversationNameRequest.getId();
-            String name = updateConversationNameRequest.getName();
-
-            // backend update
-            boolean result = conversationDAO.updateName(conversationId, name);
-
-            log.info("UpdateConversationNameRequest processed for conversationId={}: success={}", conversationId, result);
-
-            // send back response
-            UpdateConversationNameResponse updateConversationNameResponse = UpdateConversationNameResponse.newBuilder().setErrorCode(result ? 0 : 1).build();
-            ctx.writeAndFlush(updateConversationNameResponse);
-        } else if (packet.hasUpdateConversationLastMessageRequest()) {
-            if (Main.config != null && Main.config.server != null && Main.config.server.debug) {
-                log.debug("Handling UpdateConversationLastMessageRequest from {}", ctx.channel().remoteAddress());
-            }
-
-            // initialize packet object
-            UpdateConversationLastMessageRequest updateConversationLastMessageRequest = packet.getUpdateConversationLastMessageRequest();
-            // grab the properties
-            long conversationId = updateConversationLastMessageRequest.getId();
-            long lastMessageId = updateConversationLastMessageRequest.getMessageId();
-
-            // backend update
-            boolean result = conversationDAO.updateLastMessageId(conversationId, lastMessageId);
-
-            log.info("UpdateConversationLastMessageRequest processed for conversationId={}, lastMessageId={}: success={}",
-                    conversationId, lastMessageId, result);
-
-            // send back response
-            UpdateConversationLastMessageResponse updateConversationLastMessageResponse = UpdateConversationLastMessageResponse.newBuilder().setErrorCode(result ? 0 : 1).build();
-            ctx.writeAndFlush(updateConversationLastMessageResponse);
-        } else if (packet.hasDeleteConversationRequest()) {
-            if (Main.config != null && Main.config.server != null && Main.config.server.debug) {
-                log.debug("Handling DeleteConversationRequest from {}", ctx.channel().remoteAddress());
-            }
-
-            // initialize packet object
-            DeleteConversationRequest deleteConversationRequest = packet.getDeleteConversationRequest();
-
-            // grab the properties
-            long conversationId = deleteConversationRequest.getId();
-
-            // initialize response object first
-            DeleteConversationResponse deleteConversationResponse;
-
-            // checks if the user making this action is the owner
-            if (!conversationDAO.isCreator(conversationId, ctx.channel().attr(com.qtpc.tech.nolmax.server.handlers.AuthHandler.USER_ID).get())) {
-                log.info("DeleteConversationRequest denied for conversationId={}: not creator", conversationId);
-                deleteConversationResponse = DeleteConversationResponse.newBuilder().setErrorCode(1).build();
-                ctx.writeAndFlush(deleteConversationResponse);
-            } else {
-                // backend delete
-                boolean result = conversationDAO.deleteConversation(conversationId);
-
-                log.info("DeleteConversationRequest processed for conversationId={}: success={}", conversationId, result);
-
-                deleteConversationResponse = DeleteConversationResponse.newBuilder().setErrorCode(result ? 0 : 1).build();
-                ctx.writeAndFlush(deleteConversationResponse);
-            }
-        } else if (packet.hasPullConversationsRequest()) {
-            if (Main.config != null && Main.config.server != null && Main.config.server.debug) {
-                log.debug("Handling PullConversationsRequest from {}", ctx.channel().remoteAddress());
-            }
-
-            // initialize packet object
-            PullConversationsRequest pullConversationsRequest = packet.getPullConversationsRequest();
-
-            // grab the properties
-            long user_id = pullConversationsRequest.getUserId();
-            long update_id = pullConversationsRequest.getLastUpdateId();
-
-            // backend pull (returns a list of Conversations) and stream them to proto-type Conversations
-            List<com.qtpc.tech.nolmax.proto.Conversation> protoConversations = conversationDAO.pull(update_id, user_id).stream()
-                    .map(c -> com.qtpc.tech.nolmax.proto.Conversation.newBuilder()
-                            .setId(c.getId())
-                            .setType(ConversationType.forNumber(c.getType()))
-                            .setName(c.getName())
-                            .setAvatarUrl(c.getAvatarUrl())
-                            .setCreatedBy(c.getCreatedBy())
-                            .setUpdateId(c.getUpdateId())
-                            .setLastMessageId(c.getLastMessageId())
-                            .build())
-                    .toList();
-
-            log.info("PullConversationsRequest processed for userId={}, lastUpdateId={}, returnedConversations={}",
-                    user_id, update_id, protoConversations.size());
-
-            // send back response
-            PullConversationsResponse pullConversationsResponse = PullConversationsResponse.newBuilder().addAllConversations(protoConversations).build();
-            ctx.writeAndFlush(pullConversationsResponse);
-        } else {
-            log.info("Received unsupported packet type from {}: {}", ctx.channel().remoteAddress(), packet.getDescriptorForType().getName());
+    private static void logDebug(String message, Object... args) {
+        if (isDebugEnabled()) {
+            log.debug(message, args);
         }
     }
 }
