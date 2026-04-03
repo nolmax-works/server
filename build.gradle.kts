@@ -22,8 +22,8 @@ dependencies {
     implementation("org.slf4j:slf4j-simple:2.0.17")
     implementation("tools.jackson.dataformat:jackson-dataformat-yaml:3.1.0")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
-    implementation("com.nolmax.database:Nolmax_chat:1.3")
-    implementation("com.qtpc.tech.nolmax:packet:1.0.1-SNAPSHOT")
+    implementation("com.nolmax.database:Nolmax_chat:1.3.4")
+    implementation("com.qtpc.tech.nolmax:packet:1.0.4-SNAPSHOT")
 }
 
 tasks.test {

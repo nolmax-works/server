@@ -8,20 +8,24 @@ import com.qtpc.tech.nolmax.proto.ChatPacket;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.util.AttributeKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AuthHandler extends SimpleChannelInboundHandler<ChatPacket> {
-
+    private static final Logger log = LoggerFactory.getLogger(AuthHandler.class);
+    public static final AttributeKey<Long> USER_ID = AttributeKey.newInstance("userId");
     private boolean authenticated;
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, ChatPacket packet) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, ChatPacket packet) {
         if (authenticated) {
             ctx.close();
             return;
         }
 
         if (!packet.hasAuthRequest()) {
-            System.err.println("Rejected connection: first packet was not an auth packet.");
+            log.error("Rejected connection: first packet was not an auth packet.");
             ctx.close();
             return;
         }
@@ -42,9 +46,10 @@ public class AuthHandler extends SimpleChannelInboundHandler<ChatPacket> {
             AuthResponse successResponse = AuthResponse.newBuilder().setErrorCode(0).build();
             ChatPacket responsePacket = ChatPacket.newBuilder().setAuthResponse(successResponse).build();
             authenticated = true;
+            ctx.channel().attr(USER_ID).set(user.getId()); // Store the user ID
             ctx.writeAndFlush(responsePacket);
-            ctx.pipeline().remove(this);
-            System.out.println("Authentication success!");
+            ctx.pipeline().remove(this); // remove pipeline so we may not need to reauth again
+            log.info("Authentication success for user: " + user.getId());
         } else {
             sendAuthFailureAndClose(ctx);
         }
@@ -53,7 +58,7 @@ public class AuthHandler extends SimpleChannelInboundHandler<ChatPacket> {
     private void sendAuthFailureAndClose(ChannelHandlerContext ctx) {
         AuthResponse failedResponse = AuthResponse.newBuilder().setErrorCode(1).build();
         ChatPacket responsePacket = ChatPacket.newBuilder().setAuthResponse(failedResponse).build();
-        System.out.println("Failed authentication!");
+        log.info("Failed authentication!");
         ctx.writeAndFlush(responsePacket).addListener(ChannelFutureListener.CLOSE);
     }
 }

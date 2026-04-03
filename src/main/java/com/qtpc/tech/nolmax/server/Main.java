@@ -4,6 +4,7 @@ import com.nolmax.database.config.DatabaseConfig;
 import com.qtpc.tech.nolmax.proto.ChatPacket;
 import com.qtpc.tech.nolmax.server.configuration.AppConfig;
 import com.qtpc.tech.nolmax.server.handlers.AuthHandler;
+import com.qtpc.tech.nolmax.server.handlers.PacketHandler;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -67,6 +68,7 @@ public class Main {
                             // handler for authentication, will run first to authenticate connection
                             // will fail when the first packet that came to the server isnt a token authentication packet
                             pipeline.addLast(new AuthHandler());
+                            pipeline.addLast(new PacketHandler());
                         }
                     });
             log.info("Server is about to run at " + config.server.listen_address + ":" + config.server.port);
