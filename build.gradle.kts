@@ -1,6 +1,5 @@
 plugins {
     id("java")
-    id("com.google.protobuf") version "0.9.6"
 }
 
 group = "com.qtpc.tech.nolmax.server"
@@ -8,22 +7,25 @@ version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
+    maven {
+        name = "cutiepcRepoReleases"
+        url = uri("https://maven.qtpc.tech/releases")
+    }
 }
 
 dependencies {
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    implementation("io.netty:netty-all:4.2.10.Final")
+    implementation("io.netty:netty-all:4.2.12.Final")
     implementation("com.google.protobuf:protobuf-java:4.34.0")
+    implementation("org.slf4j:slf4j-simple:2.0.17")
+    implementation("tools.jackson.dataformat:jackson-dataformat-yaml:3.1.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
+    implementation("com.nolmax.database:Nolmax_chat:1.3")
+    implementation("com.qtpc.tech.nolmax:packet:1.0.1-SNAPSHOT")
 }
 
 tasks.test {
     useJUnitPlatform()
-}
-
-protobuf {
-    protoc {
-        artifact = "com.google.protobuf:protoc:4.34.0"
-    }
 }
