@@ -4,6 +4,7 @@ import com.qtpc.tech.nolmax.proto.ChatPacket;
 import com.qtpc.tech.nolmax.server.logic.ConversationLogic;
 import com.qtpc.tech.nolmax.server.logic.MessageLogic;
 import com.qtpc.tech.nolmax.server.logic.ParticipantLogic;
+import com.qtpc.tech.nolmax.server.logic.UserLogic;
 import com.qtpc.tech.nolmax.server.utils.HandlerUtils;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -16,6 +17,7 @@ public class PacketHandler extends SimpleChannelInboundHandler<ChatPacket> {
     private final ConversationLogic conversationLogic = new ConversationLogic();
     private final MessageLogic messageLogic = new MessageLogic();
     private final ParticipantLogic participantLogic = new ParticipantLogic();
+    private final UserLogic userLogic = new UserLogic();
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, ChatPacket packet) {
@@ -54,6 +56,15 @@ public class PacketHandler extends SimpleChannelInboundHandler<ChatPacket> {
             participantLogic.handleUpdateLastReadMessageRequest(ctx, packet.getUpdateLastReadMessageRequest());
         } else if (packet.hasPullParticipantsRequest()) {
             participantLogic.handlePullParticipantsRequest(ctx, packet.getPullParticipantsRequest());
+        }
+
+        // user-focused
+        else if (packet.hasUpdateUserAvatarRequest()) {
+            userLogic.handleUpdateUserAvatarRequest(ctx, packet.getUpdateUserAvatarRequest());
+        } else if (packet.hasPullUsersRequest()) {
+            userLogic.handlePullUsersRequest(ctx, packet.getPullUsersRequest());
+        } else if (packet.hasLogoutRequest()) {
+            userLogic.handleLogoutRequest(ctx); // packet has blank body
         }
 
         // warn if unsupported packet type

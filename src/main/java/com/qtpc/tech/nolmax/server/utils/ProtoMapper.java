@@ -4,6 +4,7 @@ import com.google.protobuf.Timestamp;
 import com.nolmax.database.model.Conversation;
 import com.nolmax.database.model.Message;
 import com.nolmax.database.model.Participant;
+import com.nolmax.database.model.User;
 import com.qtpc.tech.nolmax.proto.ConversationType;
 import com.qtpc.tech.nolmax.proto.ParticipantRole;
 
@@ -43,6 +44,15 @@ public class ProtoMapper {
                 .setJoinedAt(toProtoTimestamp(c.getJoinedAt()))
                 .setLeftAt(toProtoTimestamp(c.getLeftAt()))
                 .setLastReadMessageId(c.getLastReadMessageId())
+                .setUpdateId(c.getUpdateId())
+                .build();
+    }
+
+    public static com.qtpc.tech.nolmax.proto.User toProtoUser(User c) {
+        return com.qtpc.tech.nolmax.proto.User.newBuilder()
+                .setId(c.getId())
+                .setUsername(c.getUsername())
+                .setAvatarUrl(c.getAvatarUrl())
                 .setUpdateId(c.getUpdateId())
                 .build();
     }

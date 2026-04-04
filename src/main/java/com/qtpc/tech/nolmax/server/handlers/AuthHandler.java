@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 public class AuthHandler extends SimpleChannelInboundHandler<ChatPacket> {
     private static final Logger log = LoggerFactory.getLogger(AuthHandler.class);
     public static final AttributeKey<Long> USER_ID = AttributeKey.newInstance("userId");
+    public static final AttributeKey<String> USER_TOKEN = AttributeKey.newInstance("userToken");
     private boolean authenticated;
 
     @Override
@@ -47,6 +48,7 @@ public class AuthHandler extends SimpleChannelInboundHandler<ChatPacket> {
             ChatPacket responsePacket = ChatPacket.newBuilder().setAuthResponse(successResponse).build();
             authenticated = true;
             ctx.channel().attr(USER_ID).set(user.getId()); // store the user ID
+            ctx.channel().attr(USER_TOKEN).set(user.getToken()); // store the user token for future logouts
             ctx.writeAndFlush(responsePacket);
             ctx.pipeline().remove(this); // remove pipeline so we may not need to reauth again once we're in reducing overhead
             log.info("Authentication success for user: " + user.getId());

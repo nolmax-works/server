@@ -13,6 +13,10 @@ public class HandlerUtils {
         return ctx.channel().attr(AuthHandler.USER_ID).get();
     }
 
+    public static String getToken(ChannelHandlerContext ctx) {
+        return ctx.channel().attr(AuthHandler.USER_TOKEN).get();
+    }
+
     public static int toErrorCode(boolean success) {
         return success ? 0 : 1;
     }

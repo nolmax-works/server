@@ -2,7 +2,6 @@ package com.qtpc.tech.nolmax.server.logic;
 
 import com.nolmax.database.database.MessageDAO;
 import com.nolmax.database.model.Message;
-import com.nolmax.database.util.IdGenerator;
 import com.qtpc.tech.nolmax.proto.CreateMessageRequest;
 import com.qtpc.tech.nolmax.proto.CreateMessageResponse;
 import com.qtpc.tech.nolmax.proto.PullMessagesRequest;
@@ -27,14 +26,16 @@ public class MessageLogic {
         String content = request.getContent();
 
         Message message = new Message();
-        message.setId(IdGenerator.getInstance().nextId());
         message.setConversationId(conversation_id);
         message.setSenderId(sender_id);
         message.setContent(content);
 
         boolean success = messageDAO.createMessage(message);
+
+        log.info("CreateMessageRequest processed for conversationId={}, senderId={}, content={}: success={}", conversation_id, sender_id, content, success);
+
         HandlerUtils.sendResponse(ctx, CreateMessageResponse.newBuilder()
-                .setErrorCode(success ? 0 : 1)
+                .setErrorCode(HandlerUtils.toErrorCode(success))
                 .setMessage(ProtoMapper.toProtoMessage(message))
                 .build());
     }
