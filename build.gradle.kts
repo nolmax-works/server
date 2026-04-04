@@ -26,6 +26,14 @@ dependencies {
     implementation("com.qtpc.tech.nolmax:packet:1.0.0")
 }
 
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "com.qtpc.tech.nolmax.server.Main"
+    }
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
 tasks.test {
     useJUnitPlatform()
 }
