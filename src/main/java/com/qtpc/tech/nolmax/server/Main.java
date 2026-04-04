@@ -8,9 +8,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Main {
     public static AppConfig config;
+    public static final ExecutorService blockingExecutor = Executors.newVirtualThreadPerTaskExecutor();
     private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) {
@@ -40,6 +43,7 @@ public class Main {
         } catch (Exception e) {
             log.error("Failed to start the application", e);
         } finally {
+            blockingExecutor.close();
             // cleanup on exit
             DatabaseConfig.close();
             log.info("Database connection closed.");
