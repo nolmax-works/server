@@ -23,7 +23,7 @@ dependencies {
     implementation("tools.jackson.dataformat:jackson-dataformat-yaml:3.1.0")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
     implementation("com.nolmax.database:Nolmax_chat:1.3.16")
-    implementation("com.qtpc.tech.nolmax:packet:1.0.3")
+    implementation("com.qtpc.tech.nolmax:packet:1.0.4")
 }
 
 tasks.jar {
