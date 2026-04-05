@@ -2,15 +2,7 @@ package com.qtpc.tech.nolmax.server.logic;
 
 import com.nolmax.database.database.ParticipantDAO;
 import com.nolmax.database.model.Participant;
-import com.qtpc.tech.nolmax.proto.ChatPacket;
-import com.qtpc.tech.nolmax.proto.JoinConversationRequest;
-import com.qtpc.tech.nolmax.proto.JoinConversationResponse;
-import com.qtpc.tech.nolmax.proto.LeaveConversationRequest;
-import com.qtpc.tech.nolmax.proto.LeaveConversationResponse;
-import com.qtpc.tech.nolmax.proto.PullParticipantsRequest;
-import com.qtpc.tech.nolmax.proto.PullParticipantsResponse;
-import com.qtpc.tech.nolmax.proto.UpdateParticipantRoleRequest;
-import com.qtpc.tech.nolmax.proto.UpdateParticipantRoleResponse;
+import com.qtpc.tech.nolmax.proto.*;
 import com.qtpc.tech.nolmax.server.utils.HandlerUtils;
 import com.qtpc.tech.nolmax.server.utils.ProtoMapper;
 import io.netty.channel.ChannelHandlerContext;
@@ -38,6 +30,55 @@ public class ParticipantLogic {
 
         JoinConversationResponse response = JoinConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
         HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setJoinConversationResponse(response).build());
+
+        if (success) {
+            com.qtpc.tech.nolmax.proto.Participant protoParticipant = com.qtpc.tech.nolmax.proto.Participant.newBuilder()
+                    .setConversationId(conversationId)
+                    .setUserId(userId)
+                    .setRole(request.getRole())
+                    .build();
+
+            UpdateBroadcastParticipant broadcastParticipantObj = UpdateBroadcastParticipant.newBuilder()
+                    .setAction(1)
+                    .setParticipant(protoParticipant)
+                    .build();
+            ChatPacket participantBroadcastPacket = ChatPacket.newBuilder().setUpdateBroadcastParticipant(broadcastParticipantObj).build();
+
+            com.qtpc.tech.nolmax.proto.Conversation joinedConversation = com.qtpc.tech.nolmax.proto.Conversation.newBuilder()
+                    .setId(conversationId)
+                    .build();
+
+            UpdateBroadcastConversation broadcastConversationObj = UpdateBroadcastConversation.newBuilder()
+                    .setAction(1)
+                    .setConversation(joinedConversation)
+                    .build();
+            ChatPacket conversationBroadcastPacket = ChatPacket.newBuilder().setUpdateBroadcastConversation(broadcastConversationObj).build();
+
+            List<com.nolmax.database.model.Participant> allParticipants = participantDAO.getParticipantsByConversation(conversationId);
+            List<com.qtpc.tech.nolmax.proto.Participant> protoAllParticipants = allParticipants.stream()
+                    .map(ProtoMapper::toProtoParticipant)
+                    .toList();
+
+            PullParticipantsResponse pullResponse = PullParticipantsResponse.newBuilder()
+                    .setErrorCode(0)
+                    .addAllParticipants(protoAllParticipants)
+                    .build();
+            ChatPacket fullListPacket = ChatPacket.newBuilder().setPullParticipantsResponse(pullResponse).build();
+
+            for (com.nolmax.database.model.Participant p : allParticipants) {
+                long targetUserId = p.getUserId();
+                io.netty.channel.group.ChannelGroup targetChannels = com.qtpc.tech.nolmax.server.utils.ConnectionManager.getChannels(targetUserId);
+
+                if (targetChannels != null && !targetChannels.isEmpty()) {
+                    if (targetUserId == userId) {
+                        targetChannels.writeAndFlush(conversationBroadcastPacket);
+                        targetChannels.writeAndFlush(fullListPacket);
+                    } else {
+                        targetChannels.writeAndFlush(participantBroadcastPacket);
+                    }
+                }
+            }
+        }
     }
 
     public void handleLeaveConversationRequest(ChannelHandlerContext ctx, LeaveConversationRequest request) {
@@ -51,6 +92,44 @@ public class ParticipantLogic {
 
         LeaveConversationResponse response = LeaveConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
         HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setLeaveConversationResponse(response).build());
+
+        if (success) {
+            com.qtpc.tech.nolmax.proto.Participant protoParticipant = com.qtpc.tech.nolmax.proto.Participant.newBuilder()
+                    .setConversationId(conversationId)
+                    .setUserId(userId)
+                    .build();
+
+            UpdateBroadcastParticipant broadcastParticipantObj = UpdateBroadcastParticipant.newBuilder()
+                    .setAction(0)
+                    .setParticipant(protoParticipant)
+                    .build();
+            ChatPacket participantBroadcastPacket = ChatPacket.newBuilder().setUpdateBroadcastParticipant(broadcastParticipantObj).build();
+
+            com.qtpc.tech.nolmax.proto.Conversation leftConversation = com.qtpc.tech.nolmax.proto.Conversation.newBuilder()
+                    .setId(conversationId)
+                    .build();
+
+            UpdateBroadcastConversation broadcastConversationObj = UpdateBroadcastConversation.newBuilder()
+                    .setAction(0)
+                    .setConversation(leftConversation)
+                    .build();
+            ChatPacket conversationBroadcastPacket = ChatPacket.newBuilder().setUpdateBroadcastConversation(broadcastConversationObj).build();
+
+            List<com.nolmax.database.model.Participant> remainingParticipants = participantDAO.getParticipantsByConversation(conversationId);
+            for (com.nolmax.database.model.Participant p : remainingParticipants) {
+                long targetUserId = p.getUserId();
+                io.netty.channel.group.ChannelGroup targetChannels = com.qtpc.tech.nolmax.server.utils.ConnectionManager.getChannels(targetUserId);
+
+                if (targetChannels != null && !targetChannels.isEmpty()) {
+                    targetChannels.writeAndFlush(participantBroadcastPacket);
+                }
+            }
+
+            io.netty.channel.group.ChannelGroup leavingUserChannels = com.qtpc.tech.nolmax.server.utils.ConnectionManager.getChannels(userId);
+            if (leavingUserChannels != null && !leavingUserChannels.isEmpty()) {
+                leavingUserChannels.writeAndFlush(conversationBroadcastPacket);
+            }
+        }
     }
 
     public void handleUpdateParticipantRoleRequest(ChannelHandlerContext ctx, UpdateParticipantRoleRequest request) {
@@ -72,6 +151,36 @@ public class ParticipantLogic {
 
         UpdateParticipantRoleResponse response = UpdateParticipantRoleResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
         HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateParticipantRoleResponse(response).build());
+
+        if (success) {
+            com.qtpc.tech.nolmax.proto.Participant protoParticipant = com.qtpc.tech.nolmax.proto.Participant.newBuilder()
+                    .setConversationId(conversationId)
+                    .setUserId(userId)
+                    .setRole(request.getRole())
+                    .build();
+
+            UpdateBroadcastParticipant broadcastParticipantObj = UpdateBroadcastParticipant.newBuilder()
+                    .setAction(2)
+                    .setParticipant(protoParticipant)
+                    .build();
+
+            ChatPacket broadcastPacket = ChatPacket.newBuilder().setUpdateBroadcastParticipant(broadcastParticipantObj).build();
+
+            List<com.nolmax.database.model.Participant> participants = participantDAO.getParticipantsByConversation(conversationId);
+
+            for (com.nolmax.database.model.Participant p : participants) {
+                long memberId = p.getUserId();
+                io.netty.channel.group.ChannelGroup targetChannels = com.qtpc.tech.nolmax.server.utils.ConnectionManager.getChannels(memberId);
+
+                if (targetChannels != null && !targetChannels.isEmpty()) {
+                    if (memberId == requestingUserId) {
+                        targetChannels.writeAndFlush(broadcastPacket, io.netty.channel.group.ChannelMatchers.isNot(ctx.channel()));
+                    } else {
+                        targetChannels.writeAndFlush(broadcastPacket);
+                    }
+                }
+            }
+        }
     }
 
     public void handlePullParticipantsRequest(ChannelHandlerContext ctx, PullParticipantsRequest request) {

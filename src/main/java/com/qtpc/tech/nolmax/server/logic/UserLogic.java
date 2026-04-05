@@ -16,7 +16,9 @@ import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class UserLogic {
     public static final Logger log = LoggerFactory.getLogger(UserLogic.class);
@@ -31,6 +33,33 @@ public class UserLogic {
 
         UpdateUserAvatarResponse response = UpdateUserAvatarResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
         HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateUserAvatarResponse(response).build());
+
+        if (success) {
+            com.qtpc.tech.nolmax.proto.UpdateBroadcastUser broadcastObj = com.qtpc.tech.nolmax.proto.UpdateBroadcastUser.newBuilder().setUser(User.newBuilder().setAvatarUrl(request.getAvatarUrl()).setId(userId)).build();
+            ChatPacket broadcastPacket = ChatPacket.newBuilder().setUpdateBroadcastUser(broadcastObj).build();
+
+            List<Long> conversationList = ConversationLogic.conversationDAO.takeUserConversations(userId);
+            Set<Long> uniqueUserIds = new HashSet<>();
+
+            for (int i = 0; i < conversationList.size(); i++) {
+                List<com.nolmax.database.model.Participant> participants = ParticipantLogic.participantDAO.getParticipantsByConversation(conversationList.get(i));
+                for (int j = 0; j < participants.size(); j++) {
+                    uniqueUserIds.add(participants.get(j).getUserId());
+                }
+            }
+
+            for (Long targetUserId : uniqueUserIds) {
+                io.netty.channel.group.ChannelGroup targetChannels = ConnectionManager.getChannels(targetUserId);
+
+                if (targetChannels != null && !targetChannels.isEmpty()) {
+                    if (targetUserId == userId) {
+                        targetChannels.writeAndFlush(broadcastPacket, io.netty.channel.group.ChannelMatchers.isNot(ctx.channel()));
+                    } else {
+                        targetChannels.writeAndFlush(broadcastPacket);
+                    }
+                }
+            }
+        }
     }
 
     public void handlePullUsersRequest(ChannelHandlerContext ctx, PullUsersRequest request) {

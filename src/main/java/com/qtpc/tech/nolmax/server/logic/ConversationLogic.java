@@ -2,22 +2,8 @@ package com.qtpc.tech.nolmax.server.logic;
 
 import com.nolmax.database.database.ConversationDAO;
 import com.nolmax.database.model.Conversation;
-import com.qtpc.tech.nolmax.proto.ChatPacket;
-import com.qtpc.tech.nolmax.proto.CreateConversationRequest;
-import com.qtpc.tech.nolmax.proto.CreateConversationResponse;
-import com.qtpc.tech.nolmax.proto.DeleteConversationRequest;
-import com.qtpc.tech.nolmax.proto.DeleteConversationResponse;
-import com.qtpc.tech.nolmax.proto.Message;
-import com.qtpc.tech.nolmax.proto.Participant;
-import com.qtpc.tech.nolmax.proto.PullConversationsRequest;
-import com.qtpc.tech.nolmax.proto.PullConversationsResponse;
-import com.qtpc.tech.nolmax.proto.PullUpdateComboRequest;
-import com.qtpc.tech.nolmax.proto.PullUpdateComboResponse;
-import com.qtpc.tech.nolmax.proto.UpdateConversationAvatarRequest;
-import com.qtpc.tech.nolmax.proto.UpdateConversationAvatarResponse;
-import com.qtpc.tech.nolmax.proto.UpdateConversationNameRequest;
-import com.qtpc.tech.nolmax.proto.UpdateConversationNameResponse;
-import com.qtpc.tech.nolmax.proto.User;
+import com.qtpc.tech.nolmax.proto.*;
+import com.qtpc.tech.nolmax.server.utils.ConnectionManager;
 import com.qtpc.tech.nolmax.server.utils.HandlerUtils;
 import com.qtpc.tech.nolmax.server.utils.ProtoMapper;
 import io.netty.channel.ChannelHandlerContext;
@@ -28,7 +14,7 @@ import java.util.List;
 
 public class ConversationLogic {
     private static final Logger log = LoggerFactory.getLogger(ConversationLogic.class);
-    private final ConversationDAO conversationDAO = new ConversationDAO();
+    public static final ConversationDAO conversationDAO = new ConversationDAO();
 
     public void handleCreateConversation(ChannelHandlerContext ctx, CreateConversationRequest request) {
         HandlerUtils.logDebug(log, "Handling CreateConversationRequest from {}", ctx.channel().remoteAddress());
@@ -64,6 +50,24 @@ public class ConversationLogic {
 
         UpdateConversationAvatarResponse response = UpdateConversationAvatarResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
         HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateConversationAvatarResponse(response).build());
+
+        if (success) {
+            com.qtpc.tech.nolmax.proto.UpdateBroadcastConversation broadcastObj = UpdateBroadcastConversation.newBuilder().setAction(3).setConversation(com.qtpc.tech.nolmax.proto.Conversation.newBuilder().setId(conversationId).setAvatarUrl(request.getAvatarUrl()).build()).build();
+            ChatPacket broadcastPacket = ChatPacket.newBuilder().setUpdateBroadcastConversation(broadcastObj).build();
+
+            List<com.nolmax.database.model.Participant> participants = ParticipantLogic.participantDAO.getParticipantsByConversation(conversationId);
+            for (com.nolmax.database.model.Participant participant : participants) {
+                long targetUserId = participant.getUserId();
+                io.netty.channel.group.ChannelGroup targetChannels = ConnectionManager.getChannels(targetUserId);
+                if (targetChannels != null && !targetChannels.isEmpty()) {
+                    if (targetUserId == userId) {
+                        targetChannels.writeAndFlush(broadcastPacket, io.netty.channel.group.ChannelMatchers.isNot(ctx.channel()));
+                    } else {
+                        targetChannels.writeAndFlush(broadcastPacket);
+                    }
+                }
+            }
+        }
     }
 
     public void handleUpdateConversationName(ChannelHandlerContext ctx, UpdateConversationNameRequest request) {
@@ -83,6 +87,24 @@ public class ConversationLogic {
 
         UpdateConversationNameResponse response = UpdateConversationNameResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
         HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateConversationNameResponse(response).build());
+
+        if (success) {
+            com.qtpc.tech.nolmax.proto.UpdateBroadcastConversation broadcastObj = UpdateBroadcastConversation.newBuilder().setAction(2).setConversation(com.qtpc.tech.nolmax.proto.Conversation.newBuilder().setId(conversationId).setName(request.getName()).build()).build();
+            ChatPacket broadcastPacket = ChatPacket.newBuilder().setUpdateBroadcastConversation(broadcastObj).build();
+
+            List<com.nolmax.database.model.Participant> participants = ParticipantLogic.participantDAO.getParticipantsByConversation(conversationId);
+            for (com.nolmax.database.model.Participant participant : participants) {
+                long targetUserId = participant.getUserId();
+                io.netty.channel.group.ChannelGroup targetChannels = ConnectionManager.getChannels(targetUserId);
+                if (targetChannels != null && !targetChannels.isEmpty()) {
+                    if (targetUserId == userId) {
+                        targetChannels.writeAndFlush(broadcastPacket, io.netty.channel.group.ChannelMatchers.isNot(ctx.channel()));
+                    } else {
+                        targetChannels.writeAndFlush(broadcastPacket);
+                    }
+                }
+            }
+        }
     }
 
     public void handleDeleteConversation(ChannelHandlerContext ctx, DeleteConversationRequest request) {
@@ -145,7 +167,7 @@ public class ConversationLogic {
                 .map(ProtoMapper::toProtoConversation).toList();
 
         log.info("PullUpdateComboRequest processed for userId={}, lastUpdateId={}, returnedUsers={}, returnedParticipants={}, returnedMessages={}, returnedConversations={}",
-                 userId, lastUpdateId, users.size(), participants.size(), messages.size(), conversations.size());
+                userId, lastUpdateId, users.size(), participants.size(), messages.size(), conversations.size());
 
         PullUpdateComboResponse response = PullUpdateComboResponse.newBuilder()
                 .addAllUsers(users)
