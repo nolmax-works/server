@@ -33,12 +33,12 @@ public class PacketHandler extends SimpleChannelInboundHandler<ChatPacket> {
                     conversationLogic.handleUpdateConversationAvatar(ctx, packet.getUpdateConversationAvatarRequest());
                 } else if (packet.hasUpdateConversationNameRequest()) {
                     conversationLogic.handleUpdateConversationName(ctx, packet.getUpdateConversationNameRequest());
-                } else if (packet.hasUpdateConversationLastMessageRequest()) {
-                    conversationLogic.handleUpdateConversationLastMessage(ctx, packet.getUpdateConversationLastMessageRequest());
                 } else if (packet.hasDeleteConversationRequest()) {
                     conversationLogic.handleDeleteConversation(ctx, packet.getDeleteConversationRequest());
                 } else if (packet.hasPullConversationsRequest()) {
                     conversationLogic.handlePullConversations(ctx, packet.getPullConversationsRequest());
+                } else if (packet.hasPullUpdateComboRequest()) {
+                    conversationLogic.handlePullUpdateCombo(ctx, packet.getPullUpdateComboRequest());
                 }
 
                 // message-focused
@@ -55,8 +55,6 @@ public class PacketHandler extends SimpleChannelInboundHandler<ChatPacket> {
                     participantLogic.handleLeaveConversationRequest(ctx, packet.getLeaveConversationRequest());
                 } else if (packet.hasUpdateParticipantRoleRequest()) {
                     participantLogic.handleUpdateParticipantRoleRequest(ctx, packet.getUpdateParticipantRoleRequest());
-                } else if (packet.hasUpdateLastReadMessageRequest()) {
-                    participantLogic.handleUpdateLastReadMessageRequest(ctx, packet.getUpdateLastReadMessageRequest());
                 } else if (packet.hasPullParticipantsRequest()) {
                     participantLogic.handlePullParticipantsRequest(ctx, packet.getPullParticipantsRequest());
                 }

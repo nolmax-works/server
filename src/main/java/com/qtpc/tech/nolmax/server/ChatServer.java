@@ -69,19 +69,21 @@ public class ChatServer {
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
-             .channel(channelClass)
-             .childHandler(new ChannelInitializer<SocketChannel>() {
-                 @Override
-                 protected void initChannel(SocketChannel ch) {
-                     ChannelPipeline pipeline = ch.pipeline();
-                     pipeline.addLast(new ProtobufVarint32FrameDecoder());
-                     pipeline.addLast(new ProtobufDecoder(ChatPacket.getDefaultInstance()));
-                     pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
-                     pipeline.addLast(new ProtobufEncoder());
-                     pipeline.addLast(new AuthHandler());
-                     pipeline.addLast(new PacketHandler());
-                 }
-             });
+                    .channel(channelClass)
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(SocketChannel ch) {
+                            ChannelPipeline pipeline = ch.pipeline();
+                            pipeline.addLast(new io.netty.handler.timeout.IdleStateHandler(0, 0, 120));
+                            pipeline.addLast(new com.qtpc.tech.nolmax.server.handlers.HeartbeatHandler());
+                            pipeline.addLast(new ProtobufVarint32FrameDecoder());
+                            pipeline.addLast(new ProtobufDecoder(ChatPacket.getDefaultInstance()));
+                            pipeline.addLast(new ProtobufVarint32LengthFieldPrepender());
+                            pipeline.addLast(new ProtobufEncoder());
+                            pipeline.addLast(new AuthHandler());
+                            pipeline.addLast(new PacketHandler());
+                        }
+                    });
 
             log.info("Server is about to run at {}:{}", config.server.listen_address, config.server.port);
 

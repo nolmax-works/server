@@ -2,14 +2,13 @@ package com.qtpc.tech.nolmax.server.logic;
 
 import com.nolmax.database.database.ParticipantDAO;
 import com.nolmax.database.model.Participant;
+import com.qtpc.tech.nolmax.proto.ChatPacket;
 import com.qtpc.tech.nolmax.proto.JoinConversationRequest;
 import com.qtpc.tech.nolmax.proto.JoinConversationResponse;
 import com.qtpc.tech.nolmax.proto.LeaveConversationRequest;
 import com.qtpc.tech.nolmax.proto.LeaveConversationResponse;
 import com.qtpc.tech.nolmax.proto.PullParticipantsRequest;
 import com.qtpc.tech.nolmax.proto.PullParticipantsResponse;
-import com.qtpc.tech.nolmax.proto.UpdateLastReadMessageRequest;
-import com.qtpc.tech.nolmax.proto.UpdateLastReadMessageResponse;
 import com.qtpc.tech.nolmax.proto.UpdateParticipantRoleRequest;
 import com.qtpc.tech.nolmax.proto.UpdateParticipantRoleResponse;
 import com.qtpc.tech.nolmax.server.utils.HandlerUtils;
@@ -22,7 +21,7 @@ import java.util.List;
 
 public class ParticipantLogic {
     private static final Logger log = LoggerFactory.getLogger(ParticipantLogic.class);
-    private final ParticipantDAO participantDAO = new ParticipantDAO();
+    public static final ParticipantDAO participantDAO = new ParticipantDAO();
 
     public void handleJoinConversationRequest(ChannelHandlerContext ctx, JoinConversationRequest request) {
         HandlerUtils.logDebug(log, "Handling JoinConversationRequest from {}", ctx.channel().remoteAddress());
@@ -37,7 +36,8 @@ public class ParticipantLogic {
         boolean success = participantDAO.join(participant);
         log.info("JoinConversationRequest processed for conversationId={}, userId={}: success={}", conversationId, userId, success);
 
-        HandlerUtils.sendResponse(ctx, JoinConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build());
+        JoinConversationResponse response = JoinConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setJoinConversationResponse(response).build());
     }
 
     public void handleLeaveConversationRequest(ChannelHandlerContext ctx, LeaveConversationRequest request) {
@@ -49,7 +49,8 @@ public class ParticipantLogic {
         boolean success = participantDAO.left(conversationId, userId);
         log.info("LeaveConversationRequest processed for conversationId={}, userId={}: success={}", conversationId, userId, success);
 
-        HandlerUtils.sendResponse(ctx, LeaveConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build());
+        LeaveConversationResponse response = LeaveConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setLeaveConversationResponse(response).build());
     }
 
     public void handleUpdateParticipantRoleRequest(ChannelHandlerContext ctx, UpdateParticipantRoleRequest request) {
@@ -57,25 +58,20 @@ public class ParticipantLogic {
 
         long conversationId = request.getConversationId();
         long userId = request.getUserId();
+        long requestingUserId = HandlerUtils.getUserId(ctx);
         int role = request.getRole().getNumber();
+        if (!participantDAO.isAdmin(conversationId, requestingUserId)) {
+            log.warn("User {} tried to change role of user {} in conversation {}", requestingUserId, userId, conversationId);
+            UpdateParticipantRoleResponse response = UpdateParticipantRoleResponse.newBuilder().setErrorCode(1).build();
+            HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateParticipantRoleResponse(response).build());
+            return;
+        }
 
         boolean success = participantDAO.updateRole(conversationId, userId, role);
         log.info("UpdateParticipantRoleRequest processed for conversationId={}, userId={}, role={}: success={}", conversationId, userId, role, success);
 
-        HandlerUtils.sendResponse(ctx, UpdateParticipantRoleResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build());
-    }
-
-    public void handleUpdateLastReadMessageRequest(ChannelHandlerContext ctx, UpdateLastReadMessageRequest request) {
-        HandlerUtils.logDebug(log, "Handling UpdateLastReadMessageRequest from {}", ctx.channel().remoteAddress());
-
-        long conversationId = request.getConversationId();
-        long userId = request.getUserId();
-        long messageId = request.getMessageId();
-
-        boolean success = participantDAO.updateLastReadMessageId(conversationId, userId, messageId);
-        log.info("UpdateLastReadMessageRequest processed for conversationId={}, userId={}, messageId={}: success={}", conversationId, userId, messageId, success);
-
-        HandlerUtils.sendResponse(ctx, UpdateLastReadMessageResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build());
+        UpdateParticipantRoleResponse response = UpdateParticipantRoleResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateParticipantRoleResponse(response).build());
     }
 
     public void handlePullParticipantsRequest(ChannelHandlerContext ctx, PullParticipantsRequest request) {
@@ -91,6 +87,7 @@ public class ParticipantLogic {
 
         log.info("PullParticipantsRequest processed for conversationId={}, lastUpdateId={}, returnedParticipants={}", conversationId, lastUpdateId, protoParticipants);
 
-        HandlerUtils.sendResponse(ctx, PullParticipantsResponse.newBuilder().setErrorCode(0).addAllParticipants(protoParticipants).build());
+        PullParticipantsResponse response = PullParticipantsResponse.newBuilder().setErrorCode(0).addAllParticipants(protoParticipants).build();
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setPullParticipantsResponse(response).build());
     }
 }

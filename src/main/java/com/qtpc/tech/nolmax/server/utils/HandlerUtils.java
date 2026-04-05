@@ -1,7 +1,9 @@
 package com.qtpc.tech.nolmax.server.utils;
 
+import com.qtpc.tech.nolmax.proto.ChatPacket;
 import com.qtpc.tech.nolmax.server.Main;
 import com.qtpc.tech.nolmax.server.handlers.AuthHandler;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,8 +23,8 @@ public class HandlerUtils {
         return success ? 0 : 1;
     }
 
-    public static void sendResponse(ChannelHandlerContext ctx, Object response) {
-        ctx.writeAndFlush(response);
+    public static ChannelFuture sendResponse(ChannelHandlerContext ctx, ChatPacket response) {
+        return ctx.writeAndFlush(response);
     }
 
     public static boolean isDebugEnabled() {

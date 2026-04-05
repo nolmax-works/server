@@ -2,18 +2,22 @@ package com.qtpc.tech.nolmax.server.logic;
 
 import com.nolmax.database.database.ConversationDAO;
 import com.nolmax.database.model.Conversation;
+import com.qtpc.tech.nolmax.proto.ChatPacket;
 import com.qtpc.tech.nolmax.proto.CreateConversationRequest;
 import com.qtpc.tech.nolmax.proto.CreateConversationResponse;
 import com.qtpc.tech.nolmax.proto.DeleteConversationRequest;
 import com.qtpc.tech.nolmax.proto.DeleteConversationResponse;
+import com.qtpc.tech.nolmax.proto.Message;
+import com.qtpc.tech.nolmax.proto.Participant;
 import com.qtpc.tech.nolmax.proto.PullConversationsRequest;
 import com.qtpc.tech.nolmax.proto.PullConversationsResponse;
+import com.qtpc.tech.nolmax.proto.PullUpdateComboRequest;
+import com.qtpc.tech.nolmax.proto.PullUpdateComboResponse;
 import com.qtpc.tech.nolmax.proto.UpdateConversationAvatarRequest;
 import com.qtpc.tech.nolmax.proto.UpdateConversationAvatarResponse;
-import com.qtpc.tech.nolmax.proto.UpdateConversationLastMessageRequest;
-import com.qtpc.tech.nolmax.proto.UpdateConversationLastMessageResponse;
 import com.qtpc.tech.nolmax.proto.UpdateConversationNameRequest;
 import com.qtpc.tech.nolmax.proto.UpdateConversationNameResponse;
+import com.qtpc.tech.nolmax.proto.User;
 import com.qtpc.tech.nolmax.server.utils.HandlerUtils;
 import com.qtpc.tech.nolmax.server.utils.ProtoMapper;
 import io.netty.channel.ChannelHandlerContext;
@@ -39,38 +43,46 @@ public class ConversationLogic {
         boolean success = conversationDAO.createConversation(conversation);
         log.info("CreateConversationRequest processed: success={}", success);
 
-        HandlerUtils.sendResponse(ctx, CreateConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build());
+        CreateConversationResponse response = CreateConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setCreateConversationResponse(response).build());
     }
 
     public void handleUpdateConversationAvatar(ChannelHandlerContext ctx, UpdateConversationAvatarRequest request) {
         HandlerUtils.logDebug(log, "Handling UpdateConversationAvatarRequest from {}", ctx.channel().remoteAddress());
 
         long conversationId = request.getId();
+        long userId = HandlerUtils.getUserId(ctx);
+        if (!conversationDAO.isCreator(conversationId, userId)) {
+            log.warn("User {} tried to update avatar for conversation {}", userId, conversationId);
+            UpdateConversationAvatarResponse response = UpdateConversationAvatarResponse.newBuilder().setErrorCode(1).build();
+            HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateConversationAvatarResponse(response).build());
+            return;
+        }
+
         boolean success = conversationDAO.updateAvatar(conversationId, request.getAvatarUrl());
         log.info("UpdateConversationAvatarRequest processed for conversationId={}: success={}", conversationId, success);
 
-        HandlerUtils.sendResponse(ctx, UpdateConversationAvatarResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build());
+        UpdateConversationAvatarResponse response = UpdateConversationAvatarResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateConversationAvatarResponse(response).build());
     }
 
     public void handleUpdateConversationName(ChannelHandlerContext ctx, UpdateConversationNameRequest request) {
         HandlerUtils.logDebug(log, "Handling UpdateConversationNameRequest from {}", ctx.channel().remoteAddress());
 
         long conversationId = request.getId();
+        long userId = HandlerUtils.getUserId(ctx);
+        if (!conversationDAO.isCreator(conversationId, userId)) {
+            log.warn("User {} tried to update name for conversation {}", userId, conversationId);
+            UpdateConversationNameResponse response = UpdateConversationNameResponse.newBuilder().setErrorCode(1).build();
+            HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateConversationNameResponse(response).build());
+            return;
+        }
+
         boolean success = conversationDAO.updateName(conversationId, request.getName());
         log.info("UpdateConversationNameRequest processed for conversationId={}: success={}", conversationId, success);
 
-        HandlerUtils.sendResponse(ctx, UpdateConversationNameResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build());
-    }
-
-    public void handleUpdateConversationLastMessage(ChannelHandlerContext ctx, UpdateConversationLastMessageRequest request) {
-        HandlerUtils.logDebug(log, "Handling UpdateConversationLastMessageRequest from {}", ctx.channel().remoteAddress());
-
-        long conversationId = request.getId();
-        long lastMessageId = request.getMessageId();
-        boolean success = conversationDAO.updateLastMessageId(conversationId, lastMessageId);
-        log.info("UpdateConversationLastMessageRequest processed for conversationId={}, lastMessageId={}: success={}", conversationId, lastMessageId, success);
-
-        HandlerUtils.sendResponse(ctx, UpdateConversationLastMessageResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build());
+        UpdateConversationNameResponse response = UpdateConversationNameResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setUpdateConversationNameResponse(response).build());
     }
 
     public void handleDeleteConversation(ChannelHandlerContext ctx, DeleteConversationRequest request) {
@@ -80,14 +92,16 @@ public class ConversationLogic {
 
         if (!conversationDAO.isCreator(conversationId, HandlerUtils.getUserId(ctx))) {
             log.info("DeleteConversationRequest denied for conversationId={}: not creator", conversationId);
-            HandlerUtils.sendResponse(ctx, DeleteConversationResponse.newBuilder().setErrorCode(1).build());
+            DeleteConversationResponse failedResponse = DeleteConversationResponse.newBuilder().setErrorCode(1).build();
+            HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setDeleteConversationResponse(failedResponse).build());
             return;
         }
 
         boolean success = conversationDAO.deleteConversation(conversationId);
         log.info("DeleteConversationRequest processed for conversationId={}: success={}", conversationId, success);
 
-        HandlerUtils.sendResponse(ctx, DeleteConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build());
+        DeleteConversationResponse response = DeleteConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setDeleteConversationResponse(response).build());
     }
 
     public void handlePullConversations(ChannelHandlerContext ctx, PullConversationsRequest request) {
@@ -96,13 +110,50 @@ public class ConversationLogic {
         long userId = request.getUserId();
         long lastUpdateId = request.getLastUpdateId();
 
-        List<com.qtpc.tech.nolmax.proto.Conversation> protoConversations = conversationDAO.pull(lastUpdateId, userId)
-                .stream()
-                .map(ProtoMapper::toProtoConversation)
-                .toList();
+        List<com.qtpc.tech.nolmax.proto.Conversation> protoConversations = conversationDAO.pull(lastUpdateId, userId).stream().map(ProtoMapper::toProtoConversation).toList();
 
         log.info("PullConversationsRequest processed for userId={}, lastUpdateId={}, returnedConversations={}", userId, lastUpdateId, protoConversations.size());
 
-        HandlerUtils.sendResponse(ctx, PullConversationsResponse.newBuilder().setErrorCode(0).addAllConversations(protoConversations).build());
+        PullConversationsResponse response = PullConversationsResponse.newBuilder().setErrorCode(0).addAllConversations(protoConversations).build();
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setPullConversationsResponse(response).build());
+    }
+
+    public void handlePullUpdateCombo(ChannelHandlerContext ctx, PullUpdateComboRequest request) {
+        HandlerUtils.logDebug(log, "Handling PullUpdateComboRequest from {}", ctx.channel().remoteAddress());
+
+        long lastUpdateId = request.getLastUpdateId();
+        long userId = HandlerUtils.getUserId(ctx);
+
+        List<Long> conversationIds = conversationDAO.takeUserConversations(userId);
+
+        if (conversationIds.isEmpty()) {
+            PullUpdateComboResponse response = PullUpdateComboResponse.newBuilder().build();
+            HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setPullUpdateComboResponse(response).build());
+            return;
+        }
+
+        List<User> users = UserLogic.userDAO.pullBatch(conversationIds, lastUpdateId).stream()
+                .map(ProtoMapper::toProtoUser).distinct().toList();
+
+        List<Participant> participants = ParticipantLogic.participantDAO.pullBatch(conversationIds, lastUpdateId).stream()
+                .map(ProtoMapper::toProtoParticipant).toList();
+
+        List<Message> messages = MessageLogic.messageDAO.pullBatch(conversationIds, lastUpdateId).stream()
+                .map(ProtoMapper::toProtoMessage).toList();
+
+        List<com.qtpc.tech.nolmax.proto.Conversation> conversations = conversationDAO.pullBatch(conversationIds, lastUpdateId).stream()
+                .map(ProtoMapper::toProtoConversation).toList();
+
+        log.info("PullUpdateComboRequest processed for userId={}, lastUpdateId={}, returnedUsers={}, returnedParticipants={}, returnedMessages={}, returnedConversations={}",
+                 userId, lastUpdateId, users.size(), participants.size(), messages.size(), conversations.size());
+
+        PullUpdateComboResponse response = PullUpdateComboResponse.newBuilder()
+                .addAllUsers(users)
+                .addAllConversations(conversations)
+                .addAllParticipants(participants)
+                .addAllMessages(messages)
+                .build();
+
+        HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setPullUpdateComboResponse(response).build());
     }
 }
