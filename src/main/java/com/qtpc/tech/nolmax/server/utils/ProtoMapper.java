@@ -18,8 +18,8 @@ public class ProtoMapper {
         return com.qtpc.tech.nolmax.proto.Conversation.newBuilder()
                 .setId(c.getId())
                 .setType(ConversationType.forNumber(c.getType()))
-                .setName(c.getName())
-                .setAvatarUrl(c.getAvatarUrl())
+                .setName(c.getName() != null ? c.getName() : "")
+                .setAvatarUrl(c.getAvatarUrl() != null ? c.getAvatarUrl() : "")
                 .setCreatedBy(c.getCreatedBy())
                 .setUpdateId(c.getUpdateId())
                 .setLastMessageId(c.getLastMessageId())
@@ -31,7 +31,7 @@ public class ProtoMapper {
                 .setId(c.getId())
                 .setConversationId(c.getConversationId())
                 .setSenderId(c.getSenderId())
-                .setContent(c.getContent())
+                .setContent(c.getContent() != null ? c.getContent() : "")
                 .setSentAt(toProtoTimestamp(c.getSentAt()))
                 .build();
     }
@@ -51,8 +51,8 @@ public class ProtoMapper {
     public static com.qtpc.tech.nolmax.proto.User toProtoUser(User c) {
         return com.qtpc.tech.nolmax.proto.User.newBuilder()
                 .setId(c.getId())
-                .setUsername(c.getUsername())
-                .setAvatarUrl(c.getAvatarUrl())
+                .setUsername(c.getUsername() != null ? c.getUsername() : "")
+                .setAvatarUrl(c.getAvatarUrl() != null ? c.getAvatarUrl() : "")
                 .setUpdateId(c.getUpdateId())
                 .build();
     }
