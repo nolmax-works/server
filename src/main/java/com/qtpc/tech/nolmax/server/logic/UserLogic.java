@@ -1,7 +1,15 @@
 package com.qtpc.tech.nolmax.server.logic;
 
 import com.nolmax.database.database.UserDAO;
-import com.qtpc.tech.nolmax.proto.*;
+import com.qtpc.tech.nolmax.proto.ChatPacket;
+import com.qtpc.tech.nolmax.proto.PullUsersRequest;
+import com.qtpc.tech.nolmax.proto.PullUsersResponse;
+import com.qtpc.tech.nolmax.proto.UpdateUserAvatarRequest;
+import com.qtpc.tech.nolmax.proto.UpdateUserAvatarResponse;
+import com.qtpc.tech.nolmax.proto.User;
+import com.qtpc.tech.nolmax.proto.UsernameSearchRequest;
+import com.qtpc.tech.nolmax.proto.UsernameSearchResponse;
+import com.qtpc.tech.nolmax.proto.LogoutResponse;
 import com.qtpc.tech.nolmax.server.utils.ConnectionManager;
 import com.qtpc.tech.nolmax.server.utils.HandlerUtils;
 import com.qtpc.tech.nolmax.server.utils.ProtoMapper;
