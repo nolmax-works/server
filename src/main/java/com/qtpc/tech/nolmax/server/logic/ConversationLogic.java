@@ -45,7 +45,10 @@ public class ConversationLogic {
         boolean success = conversationDAO.createConversation(conversation);
         log.info("CreateConversationRequest processed: success={}", success);
 
-        CreateConversationResponse response = CreateConversationResponse.newBuilder().setErrorCode(HandlerUtils.toErrorCode(success)).build();
+        CreateConversationResponse response = CreateConversationResponse.newBuilder()
+                .setErrorCode(HandlerUtils.toErrorCode(success))
+                .setConversation(ProtoMapper.toProtoConversation(conversation))
+                .build();
         HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setCreateConversationResponse(response).build());
     }
 
@@ -148,7 +151,7 @@ public class ConversationLogic {
         long userId = request.getUserId();
         long lastUpdateId = request.getLastUpdateId();
 
-        List<com.qtpc.tech.nolmax.proto.Conversation> protoConversations = conversationDAO.pull(lastUpdateId, userId).stream().map(ProtoMapper::toProtoConversation).toList();
+        List<com.qtpc.tech.nolmax.proto.Conversation> protoConversations = conversationDAO.pull(userId, lastUpdateId).stream().map(ProtoMapper::toProtoConversation).toList();
 
         log.info("PullConversationsRequest processed for userId={}, lastUpdateId={}, returnedConversations={}", userId, lastUpdateId, protoConversations.size());
 
