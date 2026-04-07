@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.qtpc.tech.nolmax.server"
-version = "1.0.2-SNAPSHOT"
+version = "1.0.3-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -20,10 +20,10 @@ dependencies {
     implementation("io.netty:netty-all:4.2.12.Final")
     implementation("com.google.protobuf:protobuf-java:4.34.0")
     implementation("org.slf4j:slf4j-simple:2.0.17")
-    implementation("tools.jackson.dataformat:jackson-dataformat-yaml:3.1.0")
+    implementation("tools.jackson.dataformat:jackson-dataformat-yaml:3.1.1")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.2")
-    implementation("com.nolmax.database:Nolmax_chat:1.3.17-SNAPSHOT")
-    implementation("com.qtpc.tech.nolmax:packet:1.0.6")
+    implementation("com.nolmax.database:Nolmax_chat:1.3.18-SNAPSHOT")
+    implementation("com.qtpc.tech.nolmax:packet:1.0.7")
 }
 
 tasks.jar {

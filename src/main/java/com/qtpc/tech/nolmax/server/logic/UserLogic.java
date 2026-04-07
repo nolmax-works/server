@@ -1,13 +1,7 @@
 package com.qtpc.tech.nolmax.server.logic;
 
 import com.nolmax.database.database.UserDAO;
-import com.qtpc.tech.nolmax.proto.ChatPacket;
-import com.qtpc.tech.nolmax.proto.PullUsersRequest;
-import com.qtpc.tech.nolmax.proto.PullUsersResponse;
-import com.qtpc.tech.nolmax.proto.UpdateUserAvatarRequest;
-import com.qtpc.tech.nolmax.proto.UpdateUserAvatarResponse;
-import com.qtpc.tech.nolmax.proto.User;
-import com.qtpc.tech.nolmax.proto.LogoutResponse;
+import com.qtpc.tech.nolmax.proto.*;
 import com.qtpc.tech.nolmax.server.utils.ConnectionManager;
 import com.qtpc.tech.nolmax.server.utils.HandlerUtils;
 import com.qtpc.tech.nolmax.server.utils.ProtoMapper;
@@ -92,5 +86,20 @@ public class UserLogic {
         HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setLogoutResponse(response).build()).addListener(ChannelFutureListener.CLOSE);
 
         ConnectionManager.getChannels(userId).remove(ctx.channel());
+    }
+
+    public void handleUsernameSearchRequest(ChannelHandlerContext ctx, UsernameSearchRequest request) {
+        HandlerUtils.logDebug(log, "Handling UsernameSearchRequest from {}", ctx.channel().remoteAddress());
+
+        String username = request.getUsername();
+        com.nolmax.database.model.User databaseUser = userDAO.getUserByUsername(username);
+        if (databaseUser == null) {
+            UsernameSearchResponse response = UsernameSearchResponse.newBuilder().setErrorCode(1).build();
+            HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setSearchResponse(response).build());
+        } else {
+            User protoUser = ProtoMapper.toProtoUser(databaseUser);
+            UsernameSearchResponse response = UsernameSearchResponse.newBuilder().setErrorCode(0).setUser(protoUser).build();
+            HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setSearchResponse(response).build());
+        }
     }
 }
