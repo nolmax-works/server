@@ -33,6 +33,7 @@ public class ParticipantLogic {
         Participant participant = new Participant();
         participant.setConversationId(conversationId);
         participant.setUserId(userId);
+        participant.setRole(request.getRole().getNumber());
 
         boolean success = participantDAO.join(participant);
         log.info("JoinConversationRequest processed for conversationId={}, userId={}: success={}", conversationId, userId, success);
