@@ -68,6 +68,11 @@ public class PacketHandler extends SimpleChannelInboundHandler<ChatPacket> {
                     userLogic.handleLogoutRequest(ctx); // packet has blank body
                 }
 
+                // search user packet
+                else if (packet.hasSearchRequest()) {
+                    userLogic.handleUsernameSearchRequest(ctx, packet.getSearchRequest());
+                }
+
                 // warn if unsupported packet type
                 else {
                     log.warn("Received unsupported packet type from {}: {}", ctx.channel().remoteAddress(), packet.getDescriptorForType().getName());

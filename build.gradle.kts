@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "com.qtpc.tech.nolmax.server"
-version = "1.0.3-SNAPSHOT"
+version = "1.0.4-SNAPSHOT"
 
 repositories {
     mavenCentral()
