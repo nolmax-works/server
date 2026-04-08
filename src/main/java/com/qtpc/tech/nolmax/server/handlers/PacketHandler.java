@@ -1,6 +1,7 @@
 package com.qtpc.tech.nolmax.server.handlers;
 
 import com.qtpc.tech.nolmax.proto.ChatPacket;
+import com.qtpc.tech.nolmax.proto.KeepaliveResponse;
 import com.qtpc.tech.nolmax.server.Main;
 import com.qtpc.tech.nolmax.server.logic.ConversationLogic;
 import com.qtpc.tech.nolmax.server.logic.MessageLogic;
@@ -71,6 +72,14 @@ public class PacketHandler extends SimpleChannelInboundHandler<ChatPacket> {
                 // search user packet
                 else if (packet.hasSearchRequest()) {
                     userLogic.handleUsernameSearchRequest(ctx, packet.getSearchRequest());
+                }
+
+                // keepalive request
+                else if (packet.hasKeepaliveRequest()) {
+                    HandlerUtils.logDebug(log, "Received keepalive request from {} with user ID", ctx.channel().remoteAddress(), HandlerUtils.getUserId(ctx));
+
+                    // send back keepalive response
+                    HandlerUtils.sendResponse(ctx, ChatPacket.newBuilder().setKeepaliveResponse(KeepaliveResponse.newBuilder().build()).build());
                 }
 
                 // warn if unsupported packet type
