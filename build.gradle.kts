@@ -1,5 +1,13 @@
 plugins {
     id("java")
+    id("org.sonarqube") version "7.5.0.8588"
+}
+
+sonar {
+    properties {
+        property("sonar.projectKey", "nolmax_nolmax-server")
+        property("sonar.organization", "nolmax")
+    }
 }
 
 group = "com.qtpc.tech.nolmax.server"
