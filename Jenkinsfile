@@ -5,6 +5,10 @@ pipeline {
         jdk 'JDK21'
     }
 
+    triggers {
+        pollSCM('H/1 * * * *')
+    }
+
     stages {
         stage('Build and test') {
             steps {
