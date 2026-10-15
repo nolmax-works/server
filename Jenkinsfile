@@ -10,9 +10,9 @@ pipeline {
             steps {
                 script {
                     if (isUnix()) {
-                        sh './gradlew build'
+                        sh './gradlew build --no-daemon'
                     } else {
-                        bat 'gradlew.bat build'
+                        bat 'gradlew.bat build --no-daemon'
                     }
                 }
             }
@@ -23,9 +23,9 @@ pipeline {
                 withSonarQubeEnv('SonarQube Cloud') {
                     script {
                         if (isUnix()) {
-                            sh './gradlew sonar'
+                            sh './gradlew sonar --no-daemon'
                         } else {
-                            bat 'gradlew.bat sonar'
+                            bat 'gradlew.bat sonar --no-daemon'
                         }
                     }
                 }
